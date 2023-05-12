@@ -16,6 +16,7 @@ public class AdvancedLicense {
 	private String validationServer;
 	private LogType logType = LogType.NORMAL;
 	private String securityKey = "YecoF0I6M05thxLeokoHuW8iUhTdIUInjkfF";
+	private boolean debug = false;
 	
 	public AdvancedLicense(String licenseKey, String validationServer, Plugin plugin){
 		this.licenseKey = licenseKey;
@@ -30,6 +31,11 @@ public class AdvancedLicense {
 	
 	public AdvancedLicense setConsoleLog(LogType logType){
 		this.logType = logType;
+		return this;
+	}
+	
+	public AdvancedLicense debug(){
+		debug = true;
 		return this;
 	}
 	
@@ -65,6 +71,7 @@ public class AdvancedLicense {
 		
 		try{
 			URL url = new URL(validationServer+"?v1="+xor(rand, sKey)+"&v2="+xor(rand, key)+"&pl="+plugin.getName());
+			if(debug) System.out.println("RequestURL -> "+url.toString());
 			Scanner s = new Scanner(url.openStream());
 			if(s.hasNext()){
 				String response = s.next();
@@ -80,7 +87,10 @@ public class AdvancedLicense {
 				s.close();
 				return ValidationType.PAGE_ERROR;
 			}
-		}catch(IOException exc){ return ValidationType.URL_ERROR; }
+		}catch(IOException exc){ 
+			if(debug) exc.printStackTrace();
+			return ValidationType.URL_ERROR;
+		}
 	}
 	
 	
