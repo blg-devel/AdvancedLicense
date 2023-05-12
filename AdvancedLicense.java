@@ -1,13 +1,14 @@
-package me.leoko.portal;
-
-import java.io.IOException;
-import java.net.URL;
-import java.time.chrono.HijrahEra;
-import java.util.Scanner;
-import java.util.UUID;
+package me.leoko.advancedban;
 
 import org.bukkit.Bukkit;
 import org.bukkit.plugin.Plugin;
+
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.util.UUID;
 
 public class AdvancedLicense {
 	
@@ -64,34 +65,50 @@ public class AdvancedLicense {
 		return (isValid() == ValidationType.VALID);
 	}
 	
-	public ValidationType isValid(){
-		String rand = toBinary(UUID.randomUUID().toString());
-		String sKey = toBinary(securityKey);
-		String key  = toBinary(licenseKey);
-		
-		try{
-			URL url = new URL(validationServer+"?v1="+xor(rand, sKey)+"&v2="+xor(rand, key)+"&pl="+plugin.getName());
-			if(debug) System.out.println("RequestURL -> "+url.toString());
-			Scanner s = new Scanner(url.openStream());
-			if(s.hasNext()){
-				String response = s.next();
-				s.close();
-				try{
-					return ValidationType.valueOf(response);
-				}catch(IllegalArgumentException exc){
-					String respRand = xor(xor(response, key), sKey);
-					if(rand.substring(0, respRand.length()).equals(respRand)) return ValidationType.VALID;
-					else return ValidationType.WRONG_RESPONSE;
-				}
-			}else{
-				s.close();
-				return ValidationType.PAGE_ERROR;
+	private String requestServer(String v1, String v2) throws IOException {
+        URL url = new URL(validationServer+"?v1="+v1+"&v2="+v2+"&pl="+plugin.getName());
+        HttpURLConnection con = (HttpURLConnection) url.openConnection();
+        con.setRequestMethod("GET");
+        con.setRequestProperty("User-Agent", "Mozilla/5.0");
+ 
+        int responseCode = con.getResponseCode();
+        if(debug){
+            System.out.println("\nSending 'GET' request to URL : " + url);
+            System.out.println("Response Code : " + responseCode);
+        }
+ 
+        try(BufferedReader in = new BufferedReader(new InputStreamReader(con.getInputStream()))) {
+			String inputLine;
+			StringBuilder response = new StringBuilder();
+
+			while ((inputLine = in.readLine()) != null) {
+				response.append(inputLine);
 			}
-		}catch(IOException exc){ 
-			if(debug) exc.printStackTrace();
-			return ValidationType.URL_ERROR;
+
+			return response.toString();
 		}
-	}
+    }
+ 
+    public ValidationType isValid(){
+        String rand = toBinary(UUID.randomUUID().toString());
+        String sKey = toBinary(securityKey);
+        String key  = toBinary(licenseKey);
+ 
+        try {
+            String response = requestServer(xor(rand, sKey), xor(rand, key));
+ 
+            try{
+                return ValidationType.valueOf(response);
+            }catch(IllegalArgumentException exc){
+                String respRand = xor(xor(response, key), sKey);
+                if(rand.substring(0, respRand.length()).equals(respRand)) return ValidationType.VALID;
+                else return ValidationType.WRONG_RESPONSE;
+            }
+        } catch (IOException e) {
+            if(debug) e.printStackTrace();
+            return ValidationType.PAGE_ERROR;
+        }
+    }
 	
 	
 	//
@@ -99,9 +116,10 @@ public class AdvancedLicense {
 	//
 	
 	private static String xor(String s1, String s2){
-		String s0 = "";
-		for(int i = 0; i < (s1.length() < s2.length() ? s1.length() : s2.length()) ; i++) s0 += Byte.valueOf(""+s1.charAt(i))^Byte.valueOf(""+s2.charAt(i));
-		return s0;
+		StringBuilder result = new StringBuilder();
+		for(int i = 0; i < (Math.min(s1.length(), s2.length())) ; i++)
+			result.append(Byte.parseByte(""+s1.charAt(i))^Byte.parseByte(s2.charAt(i)+""));
+		return result.toString();
 	}
 	
 	//
@@ -112,7 +130,7 @@ public class AdvancedLicense {
 		NORMAL, LOW, NONE;
 	}
 	
-	public static enum ValidationType{
+	public enum ValidationType{
 		WRONG_RESPONSE, PAGE_ERROR, URL_ERROR, KEY_OUTDATED, KEY_NOT_FOUND, NOT_VALID_IP, INVALID_PLUGIN, VALID;
 	}
 	
