@@ -1,4 +1,4 @@
-package me.leoko.advancedban;
+package me.leoko.advancedlicense;
 
 import org.bukkit.Bukkit;
 import org.bukkit.plugin.Plugin;
