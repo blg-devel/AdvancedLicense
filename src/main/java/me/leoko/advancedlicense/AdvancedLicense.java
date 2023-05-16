@@ -8,7 +8,6 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
-import java.util.UUID;
 
 public class AdvancedLicense {
 
@@ -89,12 +88,11 @@ public class AdvancedLicense {
 	}
 
 	public ValidationType isValid() {
-		String rand = toBinary(UUID.randomUUID().toString());
-		String sKey = toBinary(securityKey);
-		String key = toBinary(licenseKey);
+		final ServerCom serverCom = new ServerCom(securityKey);
+		final String licenseKeyBin = serverCom.toBinary(licenseKey);
 
 		try {
-			String response = requestServer(xor(rand, sKey), xor(rand, key));
+			String response = requestServer(serverCom.getV1(), serverCom.encryptBin(licenseKeyBin));
 
 			if (response.startsWith("<")) {
 				log(1, "The License-Server returned an invalid response!");
@@ -109,8 +107,7 @@ public class AdvancedLicense {
 			try {
 				return ValidationType.valueOf(response);
 			} catch (IllegalArgumentException exc) {
-				String respRand = xor(xor(response, key), sKey);
-				if (rand.substring(0, respRand.length()).equals(respRand))
+				if (serverCom.validate(response, licenseKeyBin))
 					return ValidationType.VALID;
 				else
 					return ValidationType.WRONG_RESPONSE;
@@ -123,17 +120,6 @@ public class AdvancedLicense {
 	}
 
 	//
-	// Cryptographic
-	//
-
-	private static String xor(String s1, String s2) {
-		StringBuilder result = new StringBuilder();
-		for (int i = 0; i < (Math.min(s1.length(), s2.length())); i++)
-			result.append(Byte.parseByte("" + s1.charAt(i)) ^ Byte.parseByte(s2.charAt(i) + ""));
-		return result.toString();
-	}
-
-	//
 	// Enums
 	//
 
@@ -143,23 +129,6 @@ public class AdvancedLicense {
 
 	public enum ValidationType {
 		WRONG_RESPONSE, PAGE_ERROR, URL_ERROR, KEY_OUTDATED, KEY_NOT_FOUND, NOT_VALID_IP, INVALID_PLUGIN, VALID;
-	}
-
-	//
-	// Binary methods
-	//
-
-	private String toBinary(String s) {
-		byte[] bytes = s.getBytes();
-		StringBuilder binary = new StringBuilder();
-		for (byte b : bytes) {
-			int val = b;
-			for (int i = 0; i < 8; i++) {
-				binary.append((val & 128) == 0 ? 0 : 1);
-				val <<= 1;
-			}
-		}
-		return binary.toString();
 	}
 
 	//
