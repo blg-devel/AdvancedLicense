@@ -1,8 +1,5 @@
 package me.leoko.advancedlicense;
 
-import org.bukkit.Bukkit;
-import org.bukkit.plugin.Plugin;
-
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -12,16 +9,16 @@ import java.net.URL;
 public class AdvancedLicense {
 
 	private String licenseKey;
-	private Plugin plugin;
 	private String validationServer;
 	private LogType logType = LogType.NORMAL;
 	private String securityKey = "YecoF0I6M05thxLeokoHuW8iUhTdIUInjkfF";
+	private final LicenseActions licenseActions;
 	private boolean debug = false;
 
-	public AdvancedLicense(String licenseKey, String validationServer, Plugin plugin) {
+	public AdvancedLicense(String licenseKey, String validationServer, LicenseActions licenseActions) {
 		this.licenseKey = licenseKey;
-		this.plugin = plugin;
 		this.validationServer = validationServer;
+		this.licenseActions = licenseActions;
 	}
 
 	public AdvancedLicense setSecurityKey(String securityKey) {
@@ -53,8 +50,7 @@ public class AdvancedLicense {
 			log(1, "Disabling plugin!");
 			log(0, "[]==========[License-System]==========[]");
 
-			Bukkit.getScheduler().cancelTasks(plugin);
-			Bukkit.getPluginManager().disablePlugin(plugin);
+			licenseActions.doLicenseInvalidAction();
 			return false;
 		}
 	}
@@ -64,7 +60,7 @@ public class AdvancedLicense {
 	}
 
 	private String requestServer(String v1, String v2) throws IOException {
-		URL url = new URL(validationServer + "?v1=" + v1 + "&v2=" + v2 + "&pl=" + plugin.getName());
+		URL url = new URL(validationServer + "?v1=" + v1 + "&v2=" + v2 + "&pl=" + licenseActions.getProductName());
 		HttpURLConnection con = (HttpURLConnection) url.openConnection();
 		con.setRequestMethod("GET");
 		con.setRequestProperty("User-Agent", "Mozilla/5.0");
