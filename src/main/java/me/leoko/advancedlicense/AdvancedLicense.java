@@ -8,8 +8,8 @@ import java.net.URL;
 
 public class AdvancedLicense {
 
-	private String licenseKey;
-	private String validationServer;
+	private final String licenseKey;
+	private final String validationServer;
 	private LogType logType = LogType.NORMAL;
 	private String securityKey = "YecoF0I6M05thxLeokoHuW8iUhTdIUInjkfF";
 	private final LicenseActions licenseActions;
@@ -36,6 +36,46 @@ public class AdvancedLicense {
 		return this;
 	}
 
+	public String getToken(final String userIp) {
+		final ServerCom serverCom = new ServerCom(securityKey);
+		final String licenseKeyBin = serverCom.toBinary(licenseKey);
+
+
+		final String v1 = serverCom.getV1();
+		final String v2 = serverCom.encryptBin(licenseKeyBin);
+		final String v3 = serverCom.encrypt(userIp);
+
+		String response;
+		try {
+			response = requestServer(v1, v2, v3);
+		} catch (IOException ex) {
+			if (debug)
+				ex.printStackTrace();
+			return null;
+		}
+
+		if (response.startsWith("<")) {
+			log(1, "The License-Server returned an invalid response!");
+			log(1, "In most cases this is caused by:");
+			log(1, "1) Your Web-Host injects JS into the page (often caused by free hosts)");
+			log(1, "2) Your ValidationServer-URL is wrong");
+			log(1, "SERVER-RESPONSE: " +
+					(response.length() < 150 || debug ? response : response.substring(0, 150) + "..."));
+			return null;
+		}
+
+		try {
+			ValidationType.valueOf(response);
+			return null;
+		} catch (IllegalArgumentException ex) {
+			final String decrypted = serverCom.decrypt(response);
+			if (decrypted != null && !decrypted.startsWith(licenseKey) && decrypted.startsWith("TOKEN")) {
+				return decrypted.substring(5);
+			}
+			return null;
+		}
+	}
+
 	public boolean register() {
 		log(0, "[]==========[License-System]==========[]");
 		log(0, "Connecting to License-Server...");
@@ -59,8 +99,9 @@ public class AdvancedLicense {
 		return (isValid() == ValidationType.VALID);
 	}
 
-	private String requestServer(String v1, String v2) throws IOException {
-		URL url = new URL(validationServer + "?v1=" + v1 + "&v2=" + v2 + "&pl=" + licenseActions.getProductName());
+	private String requestServer(String v1, String v2, String v3) throws IOException {
+		URL url = new URL(validationServer + "?v1=" + v1 + "&v2=" + v2 +
+				"&pl=" + licenseActions.getProductName() + (v3 != null ? "&v3=" + v3 : ""));
 		HttpURLConnection con = (HttpURLConnection) url.openConnection();
 		con.setRequestMethod("GET");
 		con.setRequestProperty("User-Agent", "Mozilla/5.0");
@@ -88,7 +129,7 @@ public class AdvancedLicense {
 		final String licenseKeyBin = serverCom.toBinary(licenseKey);
 
 		try {
-			String response = requestServer(serverCom.getV1(), serverCom.encryptBin(licenseKeyBin));
+			String response = requestServer(serverCom.getV1(), serverCom.encryptBin(licenseKeyBin), null);
 
 			if (response.startsWith("<")) {
 				log(1, "The License-Server returned an invalid response!");
@@ -103,10 +144,8 @@ public class AdvancedLicense {
 			try {
 				return ValidationType.valueOf(response);
 			} catch (IllegalArgumentException exc) {
-				if (serverCom.validate(response, licenseKeyBin))
-					return ValidationType.VALID;
-				else
-					return ValidationType.WRONG_RESPONSE;
+				if (serverCom.validate(response, licenseKeyBin)) return ValidationType.VALID;
+				return ValidationType.WRONG_RESPONSE;
 			}
 		} catch (IOException e) {
 			if (debug)
